@@ -1,15 +1,16 @@
 import { useState, useEffect, FormEvent, FunctionComponent } from 'react';
 import { Button, Header, Form, Message } from 'semantic-ui-react';
 import { useUser } from 'utils/useUser';
-import { fuego } from '@nandorojo/swr-firestore';
+import { fuego, useDocument } from '@nandorojo/swr-firestore';
 import styles from 'styles/Index.module.scss';
 import { useRouter } from 'next/router';
 import LoadingPage from 'components/LoadingPage';
+import { User } from 'utils/interfaces';
 
 const Index: FunctionComponent = () => {
     const router = useRouter();
 
-    const { status } = useUser();
+    const { status, logout } = useUser();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -24,7 +25,18 @@ const Index: FunctionComponent = () => {
     const login = async (e: FormEvent) => {
         e.preventDefault();
         try {
-            await fuego.auth().signInWithEmailAndPassword(email, password);
+            const { user } = await fuego
+                .auth()
+                .signInWithEmailAndPassword(email, password);
+
+            const userInfo = useDocument<User>(`users/${user.uid}`).data;
+
+            if (userInfo?.role !== 'delivery-guy') {
+                logout();
+                throw {
+                    message: 'You are not a delivery guy!',
+                };
+            }
         } catch (error) {
             setError(error.message);
             setTimeout(() => setError(''), 6000);
